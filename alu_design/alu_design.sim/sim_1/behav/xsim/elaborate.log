@@ -1,0 +1,7 @@
+Vivado Simulator 2018.2
+Copyright 1986-1999, 2001-2018 Xilinx, Inc. All Rights Reserved.
+Running: E:/vivado/vivado/Vivado/2018.2/bin/unwrapped/win64.o/xelab.exe -wto 146937e919cf4162bba946590814350c --incr --debug typical --relax --mt 2 -L xil_defaultlib -L unisims_ver -L unimacro_ver -L secureip --snapshot alu_sim_behav xil_defaultlib.alu_sim xil_defaultlib.glbl -log elaborate.log 
+Using 2 slave threads.
+Starting static elaboration
+ERROR: [VRFC 10-426] cannot find port a on this module [F:/vivado/alu_design/alu_design.srcs/sim_1/new/alu_sim.v:43]
+ERROR: [XSIM 43-3322] Static elaboration of top level Verilog design unit(s) in library work failed.
