@@ -108,7 +108,7 @@ module prefix_adder_low(
     wire [7:0] pij_0, gij_0, pij_1, gij_1,             pij_2, gij_2, pij_3, gij_3;  
     wire [15:0] gen;
     reg [15:0] b;
-    reg cin=1'b0;
+    reg cin;
     
   always@(ctrl,bin)
     begin
@@ -116,11 +116,12 @@ module prefix_adder_low(
         1'b0:
             begin
                 b=bin;
+                cin=1'b0;
             end
         1'b1:
             begin
                 b=~bin;
-//                cin=1'b1;
+                cin=1'b1;
             end
     endcase
     cin=ctrl;
@@ -210,6 +211,24 @@ module prefix_adder(
             .cout(cout)
     );
   endmodule
+  
+module comparision(
+    input [31:0]a,
+    input [31:0]b,
+    input[31:0]sub,
+    output reg slt
+        );
+always@(*)
+    begin
+        if(a[31]==1'b1&&b[31]==1'b0)
+        slt=1'b1;
+    else if(a[31]==1'b0&&b[31]==1'b1)
+        slt=1'b0;
+    else
+        slt=sub[31];
+    end
+    endmodule
+
 
 module ALU_Final(
     input [2:0] ctrl,
@@ -217,7 +236,8 @@ module ALU_Final(
     output reg [31:0] y
 );
     reg [4:0] shamt=5'b00010;
-    wire [31:0] d[7:0];
+    wire [31:0] d[6:0];
+    wire d_1;
     wire [31:0] suibian;
     
     //instantiation begin
@@ -228,17 +248,19 @@ module ALU_Final(
         .a(a), .c(d[1])
 );
     prefix_adder jia(
-            .a(a), .b(b), .ctrl(ctrl[0]),
+            .a(a), .b(b), .ctrl(1'b0),
             .s(d[2]), .cout(suibian)
     );
     prefix_adder jian(
-            .a(a), .b(b), .ctrl(ctrl[1]),
+            .a(a), .b(b), .ctrl(1'b1),
             .s(d[3]), .cout(suibian)
     );
-
+    comparision slt(
+             .a(a), .b(b), .sub(d[3]), .slt(d_1)
+    );
       shifter dut(.a(a),.b(shamt),.c1(d[5]),.c2(d[6]),.c3(d[4]));//meiyoukonzhiyijiweide
       
-      booth_mult m1(d[7],a[15:0],b[15:0]);
+//      booth_mult m1(d[7],a[15:0],b[15:0]);
 
     //instantiation end
     
@@ -251,7 +273,7 @@ module ALU_Final(
             3'b100:y=d[4]; //shift left
             3'b101:y=d[5]; //algorithm shift right
             3'b110:y=d[6]; //logic shift right
-            3'b111:y=d[7];     //mul       
+            3'b111:y=d_1;     //mul       
         endcase
             
 endmodule
@@ -384,8 +406,3 @@ prefix_adder add6(
             prod5, prod6, 0,
             prod7);
 endmodule
-
-
-
-
-
