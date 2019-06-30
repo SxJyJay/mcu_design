@@ -65,9 +65,9 @@ module logic_not(
 endmodule
 
 module shifter(
-     input [31:0] a,     // 32 Î»Ô­Ê¼ÊäÈëÊı¾İ
-     input [4:0] b,      // 5 Î»ÊäÈëÊı¾İ£¬¿ØÖÆÒÆÎ»µÄÎ»Êı
-     output reg [31:0] c1,c2,c3     // 32 Î»Êä³ö£¬ÓÉa ¾­¹ıb Î»Í¨¹ıaluc Ö¸¶¨µÄÒÆÎ»·½Ê½ÒÆÎ»¶øµÃ
+     input [31:0] a,     // 32 ä½åŸå§‹è¾“å…¥æ•°æ®
+     input [4:0] b,      // 5 ä½è¾“å…¥æ•°æ®ï¼Œæ§åˆ¶ç§»ä½çš„ä½æ•°
+     output reg [31:0] c1,c2,c3     // 32 ä½è¾“å‡ºï¼Œç”±a ç»è¿‡b ä½é€šè¿‡aluc æŒ‡å®šçš„ç§»ä½æ–¹å¼ç§»ä½è€Œå¾—
     );
        reg [31:0] temp1;
        reg [31:0] temp2;
@@ -110,16 +110,20 @@ module prefix_adder_low(
     reg [15:0] b;
     reg cin=1'b0;
     
-  always@(ctrl)
+  always@(ctrl,bin)
     begin
     case (ctrl)
-        1'b0:b=bin;
+        1'b0:
+            begin
+                b=bin;
+            end
         1'b1:
             begin
                 b=~bin;
-                cin=1'b1;
+//                cin=1'b1;
             end
     endcase
+    cin=ctrl;
     end
     
   pgblock pgblock_top(a[14:0], b[14:0], p, g);
@@ -142,11 +146,17 @@ endmodule
              wire [15:0] gen;
              reg [15:0] b;
              
-               always@(ctrl)
+               always@(ctrl,bin)
                begin
                case (ctrl)
-                   1'b0:b=bin;
-                   1'b1:b=~bin;
+                   1'b0:
+                   begin
+                    b=bin;
+                   end
+                   1'b1:
+                   begin
+                     b=~bin;
+                   end
                endcase
                end
              
@@ -201,7 +211,7 @@ module prefix_adder(
     );
   endmodule
 
-module alu(
+module ALU_Final(
     input [2:0] ctrl,
     input [31:0] a,b,
     output reg [31:0] y
@@ -227,9 +237,8 @@ module alu(
     );
 
       shifter dut(.a(a),.b(shamt),.c1(d[5]),.c2(d[6]),.c3(d[4]));//meiyoukonzhiyijiweide
-//    wire [31:0] m_res;
-//      booth_mult m1(m_res,a,b);
-//      assign d[3] = m_res[30:15] + m_res[14];
+      
+      booth_mult m1(d[7],a[15:0],b[15:0]);
 
     //instantiation end
     
@@ -240,55 +249,143 @@ module alu(
             3'b010:y=d[2]; //add
             3'b011:y=d[3]; //sub
             3'b100:y=d[4]; //shift left
-            3'b101:y=d[5]; //lalgorithm shift right
+            3'b101:y=d[5]; //algorithm shift right
             3'b110:y=d[6]; //logic shift right
-//            3'b111:y=d[7];     //mul       
+            3'b111:y=d[7];     //mul       
         endcase
             
 endmodule
 
+module booth_mult_sm (p,xin,yin);
+input [15:0] xin, yin;
+logic [15:0] x,y;
+output logic [31:0]p;
+reg [2:0] cc[7:0];
+reg [17:0] pp[7:0];
+reg [31:0] spp[7:0];
+logic [16:0] inv_x;
+wire [31:0] suibian;
+logic [31:0] prod1,prod2,prod3,prod4,prod5,prod6,prod7;
+reg cout;
+integer i,j;
 
-//module booth_mult (p, x, y);
-//parameter width= 16;
-//parameter N = 8;
-//input[width-1:0]x, y;
-//output[width+width-1:0]p;
-//reg [2:0] cc[N-1:0];
-//reg [width:0] pp[N-1:0];
-//reg [width+width-1:0] spp[N-1:0];
-//reg [width+width-1:0] prod;
-//wire [width:0] inv_x;
-//wire [31:0] suibian;
-//integer i,j;
-////generate two's complement of mutiplicand X(M)
-//assign inv_x = {~x[width-1],~x}+1;
+always @ (xin or yin)
+begin
+//turn signed magnitude into signed decimal
+        if ( xin[15] == 1 )
+            x = {1'b1,~xin[14:0]}+1;
+        if ( yin[15] == 1 )
+            y = {1'b1,~yin[14:0]}+1;
+          
+inv_x = {~x[15],~x}+1;
+cc[0] = {y[1],y[0],1'b0}; //generate Ck for each k, for k is not zero
+for(j=1;j<8;j=j+1)
+cc[j] = {y[2*j+1],y[2*j],y[2*j-1]};
 
-//always @ (x or y or inv_x)
-//begin
-//cc[0] = {y[1],y[0],1'b0}; //generate Ck for each k, for k is not zero
-//for(j=1;j<N;j=j+1)
-//cc[j] = {y[2*j+1],y[2*j],y[2*j-1]};
+for(j=0;j<8;j=j+1)//è®¡ç®—éƒ¨åˆ†ç§¯
+begin
+case(cc[j])
+3'b001 , 3'b010 : pp[j] = {x[15],x[15],x};
+3'b011 : pp[j] = {x[15],x,1'b0};
+3'b100 : pp[j] = {inv_x[16:0],1'b0};
+3'b101 , 3'b110 : pp[j] = {inv_x[16],inv_x};
+default : pp[j] = 0;
+endcase
 
-//for(j=0;j<N;j=j+1)
-//begin
-//case(cc[j])
-//3'b001 , 3'b010 : pp[j] = {x[width-1],x};
-//3'b011 : pp[j] = {x,1'b0};
-//3'b100 : pp[j] = {inv_x[width-1:0],1'b0};
-//3'b101 , 3'b110 : pp[j] = inv_x;
-//default : pp[j] = 0;
-//endcase
+spp[j] = $signed(pp[j]);
+for(i=0;i<j;i=i+1)
+spp[j] = {spp[j],2'b00}; //multiply by 2 to the power x or shifting operation
+end //'for(j=0;j<N;j=j+1)'
+end
+prefix_adder add0(
+          spp[0], spp[1], 0,
+            prod1,cout);
+prefix_adder add1(
+           spp[2], spp[3], 0,
+            prod2);
+prefix_adder add2(
+           spp[4], spp[5], 0,
+            prod3);
+prefix_adder add3(
+           spp[6], spp[7], 0,
+            prod4);
+ prefix_adder add4(
+            prod1, prod2, 0,
+            prod5);
+prefix_adder add5(
+            prod3, prod4, 0,
+            prod6);
+prefix_adder add6(
+            prod5, prod6, 0,
+            prod7);
+always@(prod7)
+    begin
+        if (prod7[31] == 1)
+            p = {1'b1,~prod7[31:16]}+1;
+        else
+            p = prod7[31:16];
+    end
+endmodule
 
-//spp[j] = $signed(pp[j]);
-//for(i=0;i<j;i=i+1)
-//spp[j] = {spp[j],2'b00}; //multiply by 2 to the power x or shifting operation
-//end //'for(j=0;j<N;j=j+1)'
-//prod = spp[0];
-//for(j=1;j<N;j=j+1)
-//prefix_adder(
-//            prod, spp[0], 0,
-//            prod, suibian);
-//end
-//assign p = prod;
-//endmodule
+module booth_mult (p,x,y);
+input[15:0]x, y;
+output logic [15:0]p;
+reg [2:0] cc[7:0];
+reg [17:0] pp[7:0];
+reg [31:0] spp[7:0];
+wire [16:0] inv_x;
+wire [31:0] suibian;
+logic [31:0] prod1,prod2,prod3,prod4,prod5,prod6,prod7;
+reg cout;
+integer i,j;
+//generate two's complement of mutiplicand X(M)
+assign inv_x = {~x[15],~x}+1;
+
+always @ (x or y or inv_x)
+begin
+cc[0] = {y[1],y[0],1'b0}; //generate Ck for each k, for k is not zero
+for(j=1;j<8;j=j+1)
+cc[j] = {y[2*j+1],y[2*j],y[2*j-1]};
+
+for(j=0;j<8;j=j+1)//è®¡ç®—éƒ¨åˆ†ç§¯
+begin
+case(cc[j])
+3'b001 , 3'b010 : pp[j] = {x[15],x[15],x};
+3'b011 : pp[j] = {x[15],x,1'b0};
+3'b100 : pp[j] = {inv_x[16:0],1'b0};
+3'b101 , 3'b110 : pp[j] = {inv_x[16],inv_x};
+default : pp[j] = 0;
+endcase
+
+spp[j] = $signed(pp[j]);
+for(i=0;i<j;i=i+1)
+spp[j] = {spp[j],2'b00}; //multiply by 2 to the power x or shifting operation
+end //'for(j=0;j<N;j=j+1)'
+end
+prefix_adder add0(
+          spp[0], spp[1], 0,
+            prod1,cout);
+prefix_adder add1(
+           spp[2], spp[3], 0,
+            prod2);
+prefix_adder add2(
+           spp[4], spp[5], 0,
+            prod3);
+prefix_adder add3(
+           spp[6], spp[7], 0,
+            prod4);
+ prefix_adder add4(
+            prod1, prod2, 0,
+            prod5);
+prefix_adder add5(
+            prod3, prod4, 0,
+            prod6);
+prefix_adder add6(
+            prod5, prod6, 0,
+            prod7);
+endmodule
+
+
+
+
 
